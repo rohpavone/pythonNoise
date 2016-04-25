@@ -1,17 +1,25 @@
 import pyaudio
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.signal import butter, lfilter, freqz
 
-def multiply(sig1, sig2):
-    if len(sig1) != len(sig2):
-        return []
+''' pyaudio shit right here '''
+CHUNK = 1024
+WIDTH = 2
+CHANNELS = 2
+RATE = 44100
+RECORD_SECONDS = 15
 
-    for i in range(len(sig1)):
-        sig1[i] = sig2[i] * sig1[i]
+def butter_lowpass(cutoff, fs, order=5):
+	nyq = 0.5 * fs
+	normal_cutoff = cutoff / nyq
+	b, a = butter(order, normal_cutoff, btype='low', analog=False)
+	return b, a
 
-    return sig1 # worked, still needs to be digitized
-
-
+def butter_lowpass_filter(data, cutoff, fs, order=5):
+	b, a = butter_lowpass(cutoff, fs, order=order)
+	y = lfilter(b, a, data)
+	return y
 
 
 def printData():
@@ -27,12 +35,7 @@ def printData():
     #left_channel[CHUNK/2:] = temp'''
     return left_channel
 
-''' pyaudio shit right here '''
-CHUNK = 1024
-WIDTH = 2
-CHANNELS = 2
-RATE = 44100
-RECORD_SECONDS = 15
+
 
 p = pyaudio.PyAudio()
 stream = p.open(format=p.get_format_from_width(WIDTH),
@@ -43,9 +46,9 @@ stream = p.open(format=p.get_format_from_width(WIDTH),
                 frames_per_buffer=CHUNK)
 
 ''' end of section '''
-
-
-
+order = 6
+cutoff = 1000
+b, a  = butter_lowpass(cutoff, RATE, order)
 
 ''' pylab shit goes here '''
 fig, axes = plt.subplots(nrows=1)
@@ -68,10 +71,12 @@ backgrounds = fig.canvas.copy_from_bbox(axes.bbox)
 ''' the shit that's going down '''
 
 print("recording commencing")
-
+l = []
 for i in range(int(RATE/CHUNK*RECORD_SECONDS)):
     fig.canvas.restore_region(backgrounds)
-    line.set_ydata(printData())
+    l = printData()
+    y = butter_lowpass_filter(data, cutoff, fs, order)
+    line.set_ydata(y)
     axes.draw_artist(line)
     fig.canvas.blit(axes.bbox)
 
